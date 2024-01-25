@@ -8,10 +8,9 @@ import "@devest/contracts/DeVest.sol";
 
 contract DvBooking is Context, DeVest, ReentrancyGuard {
 
-    event booked(address indexed customer, string[] calldata dates);
+    event booked(address indexed customer, string[] dates);
 
     mapping(string => bool) public bookedDates;
-    address public owner;
 
     // Vesting / Trading token reference
     IERC20 internal _token;
@@ -25,15 +24,9 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
     uint256 private _price;
     uint256 private bookingPrice;
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only the owner can call this function");
-        _;
-    }
-
     constructor(address _tokenAddress, string memory __name, string memory __symbol, string memory __tokenURI, address _factory, address _owner) DeVest(_owner, _factory) {
-        owner = msg.sender;
         _token =  IERC20(_tokenAddress);
-        _symbol = string(abi.encodePacked("% ", __symbol));
+        _symbol = string(abi.encodePacked("nights ", __symbol));
         _name = __name;
         _tokenURI = __tokenURI;
     }
@@ -43,9 +36,6 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
      */
     function initialize(uint tax, uint256 price) public onlyOwner nonReentrant virtual{
         require(tax >= 0 && tax <= 1000, 'Invalid tax value');
-        require(totalSupply >= 0 && totalSupply <= 10000, 'Max 10 decimals');
-
-        _totalSupply = totalSupply;
         _price = price;
 
         // set attributes
@@ -53,9 +43,9 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
     }
 
     function book(string[] calldata dates) external takeFee payable {
-        require(msg.value == bookingPrice * dates.length, "Incorrect funds provided");
+        require(msg.value == bookingPrice * ( dates.length - 1), "Incorrect funds provided");
         // check if enough escrow allowed and pick the cash
-        bookingPrice = dates.length * _price;
+        bookingPrice = (dates.length - 1) * _price;
         __allowance(_msgSender(), bookingPrice);
         _token.transferFrom(_msgSender(), address(this), bookingPrice);
 
@@ -63,7 +53,6 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
             require(!bookedDates[dates[i]], "Date is already booked");
             bookedDates[dates[i]] = true;
         }
-
         emit booked(msg.sender, dates);
     }
 
@@ -71,12 +60,11 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
         return bookedDates[date];
     }
 
-    function withdrawFunds() external onlyOwner {
-        payable(owner).transfer(address(this).balance);
-    }
-
-    function isDateBooked(string calldata date) public view returns (bool) {
-        return bookedDates[date];
+   /**
+     *  Withdraw tokens from purchases from this contract
+    */
+    function withdraw() external onlyOwner {
+        _token.transfer(_owner, _token.balanceOf(address(this)));
     }
 
     // set dates as unavailable, only owner
@@ -85,7 +73,7 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
             require(!bookedDates[dates[i]], "Date is already booked");
             bookedDates[dates[i]] = true;
         }
-        emit booked(owner, startDate, endDate);
+        emit booked(_owner, dates);
     }
 
     /**
@@ -110,12 +98,7 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
         return _price;
     }
 
-    function getPurchased() external view returns (uint256) {
-        return _purchased;
-    }
-
     function getTotalSupply() external view returns (uint256) {
         return _totalSupply;
     }
-
 }

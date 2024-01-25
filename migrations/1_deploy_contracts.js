@@ -1,16 +1,16 @@
-const DvTicket = artifacts.require("DvTicket");
-const DvTicketFactory = artifacts.require("DvTicketFactory");
+const DvBooking = artifacts.require("DvBooking");
+const DvBookingFactory = artifacts.require("DvBookingFactory");
 
 module.exports = function(deployer) {
   if (deployer.network === 'development') {
-      deployer.deploy(DvTicketFactory)
-          .then(() => DvTicketFactory.deployed())
+      deployer.deploy(DvBookingFactory)
+          .then(() => DvBookingFactory.deployed())
           .then(async _instance => {
                 await _instance.setFee(0, 0);
           });
   } else {
-      deployer.deploy(DvTicketFactory)
-          .then(() => DvTicketFactory.deployed())
+      deployer.deploy(DvBookingFactory)
+          .then(() => DvBookingFactory.deployed())
           .then(async _instance => {
               //await _instance.setFee(0, 0);
           });

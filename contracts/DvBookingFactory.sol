@@ -31,7 +31,7 @@ contract DvBookingFactory is Context {
      * @dev detach a token from this factory
      */
     function detach(address payable _tokenAddress) external payable onlyOwner {
-        DvTicket token = DvTicket(_tokenAddress);
+        DvBooking token = DvBooking(_tokenAddress);
         token.detach();
     }
 
