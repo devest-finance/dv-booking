@@ -5,15 +5,23 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@devest/contracts/DeVest.sol";
+import "@devest/contracts/VestingToken.sol";
 
-contract DvBooking is Context, DeVest, ReentrancyGuard {
+contract DvBooking is Context, DeVest, VestingToken, ReentrancyGuard {
 
-    event booked(address indexed customer, string[] dates);
+    struct Booking {
+        uint checkIn;
+        uint checkOut;
+        address user;
+    }
+
+    Booking[] public bookings;
+
+    mapping(address => Booking[]) public userBookings;
+
+    event booked(address indexed from, uint256 checkIn, uint256 checkOut);
 
     mapping(string => bool) public bookedDates;
-
-    // Vesting / Trading token reference
-    IERC20 internal _token;
 
     // Properties
     string internal _name;           // name of the tangible
@@ -24,8 +32,11 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
     uint256 private _price;
     uint256 private bookingPrice;
 
-    constructor(address _tokenAddress, string memory __name, string memory __symbol, string memory __tokenURI, address _factory, address _owner) DeVest(_owner, _factory) {
-        _token =  IERC20(_tokenAddress);
+    uint256 public bookingStart = 0;    // start date of presale
+    uint256 public bookingEnd = 0;      // end date of presale
+
+
+    constructor(address _tokenAddress, string memory __name, string memory __symbol, string memory __tokenURI, address _factory, address _owner) DeVest(_owner, _factory) VestingToken(_tokenAddress) {
         _symbol = string(abi.encodePacked("nights ", __symbol));
         _name = __name;
         _tokenURI = __tokenURI;
@@ -42,45 +53,38 @@ contract DvBooking is Context, DeVest, ReentrancyGuard {
         _setRoyalties(tax, owner());
     }
 
-    function book(string[] calldata dates) external takeFee payable {
-        require(msg.value == bookingPrice * ( dates.length - 1), "Incorrect funds provided");
-        // check if enough escrow allowed and pick the cash
-        bookingPrice = (dates.length - 1) * _price;
-        __allowance(_msgSender(), bookingPrice);
-        _token.transferFrom(_msgSender(), address(this), bookingPrice);
+    function book(uint _checkIn, uint _checkOut) external payable {
+        require(_checkOut > _checkIn, "Check-out must be after check-in");
+        uint numNights = (_checkOut - _checkIn) / 86400; // Calculate nights based on timestamps
+        require(msg.value == numNights * _price, "Incorrect payment amount");
 
-        for (uint256 i = 0; i < dates.length; i++) {
-            require(!bookedDates[dates[i]], "Date is already booked");
-            bookedDates[dates[i]] = true;
+        for (uint i = 0; i < bookings.length; i++) {
+            bool isOverlapping = (_checkIn < bookings[i].checkOut) && (_checkOut > bookings[i].checkIn);
+            require(!isOverlapping, "Dates are not available");
         }
-        emit booked(msg.sender, dates);
+
+        bookings.push(Booking(_checkIn, _checkOut, msg.sender));
+        emit booked(msg.sender, _checkIn, _checkOut);
     }
 
-    function isDateBooked(string calldata date) external view returns (bool) {
-        return bookedDates[date];
+    function getAllBookings() external view returns (Booking[] memory) {
+        return bookings;
+    }
+
+    function isDateBooked(uint _date) public view returns (bool) {
+        for (uint i = 0; i < bookings.length; i++) {
+            if (_date >= bookings[i].checkIn && _date <= bookings[i].checkOut) {
+                return true; // The date is within a booked interval
+            }
+        }
+        return false; // No bookings found that include the date
     }
 
    /**
      *  Withdraw tokens from purchases from this contract
     */
     function withdraw() external onlyOwner {
-        _token.transfer(_owner, _token.balanceOf(address(this)));
-    }
-
-    // set dates as unavailable, only owner
-    function setUnavailable(string[] calldata dates) external onlyOwner {
-        for (uint256 i = 0; i < dates.length; i++) {
-            require(!bookedDates[dates[i]], "Date is already booked");
-            bookedDates[dates[i]] = true;
-        }
-        emit booked(_owner, dates);
-    }
-
-    /**
-     *  Internal token allowance
-     */
-    function __allowance(address account, uint256 amount) internal view {
-        require(_token.allowance(account, address(this)) >= amount, 'Insufficient allowance provided');
+        __transfer(_owner, __balanceOf(address(this)));
     }
 
     /**
