@@ -34,19 +34,6 @@ contract("DvBooking", accounts => {
         assert.equal(booking.user, accounts[0], "Booking was not recorded correctly.");
     });
 
-    it("should allow a user to book accommodation if dates are available", async () => {
-        const checkInDate = Math.floor(Date.now() / 1000) + 86400; // Tomorrow
-        const checkOutDate = checkInDate + 86400 * 3; // Three days later
-
-        await dvBooking.book(checkInDate, checkOutDate, {
-            from: accounts[0],
-            value: costPerNight * 3,
-        });
-
-        const booking = await dvBooking.bookings(0);
-        assert.equal(booking.user, accounts[0], "Booking was not recorded correctly.");
-    });
-
     it("should not allow booking if dates are not available", async () => {
         const checkInDate = Math.floor(Date.now() / 1000) + 86400; // Tomorrow
         const checkOutDate = checkInDate + 86400 * 3; // Three days later
@@ -67,10 +54,10 @@ contract("DvBooking", accounts => {
         const checkOutDate = checkInDate + 86400 * 2; // Two days later
 
         // Assuming a booking already exists in the test above
-        const isBooked = await dvBooking.isDateBooked(checkInDate + 86400);
+        const isBooked = await dvBooking.isDateBooked(checkInDate, checkOutDate + 86400);
         assert.isTrue(isBooked, "The date should be booked");
 
-        const isNotBooked = await dvBooking.isDateBooked(checkOutDate + 86400);
+        const isNotBooked = await dvBooking.isDateBooked(checkOutDate + 86400, checkOutDate + 2* 86400);
         assert.isFalse(isNotBooked, "The date should be available");
     });
 

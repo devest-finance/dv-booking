@@ -53,7 +53,7 @@ contract DvBooking is Context, DeVest, VestingToken, ReentrancyGuard {
         _setRoyalties(tax, owner());
     }
 
-    function book(uint _checkIn, uint _checkOut) external payable {
+    function book(uint256 _checkIn, uint256 _checkOut) external payable {
         require(_checkOut > _checkIn, "Check-out must be after check-in");
         uint numNights = (_checkOut - _checkIn) / 86400; // Calculate nights based on timestamps
         require(msg.value == numNights * _price, "Incorrect payment amount");
@@ -71,13 +71,14 @@ contract DvBooking is Context, DeVest, VestingToken, ReentrancyGuard {
         return bookings;
     }
 
-    function isDateBooked(uint _date) public view returns (bool) {
+    function isDateBooked(uint256 _checkIn, uint256 _checkOut) public view returns (bool) {
         for (uint i = 0; i < bookings.length; i++) {
-            if (_date >= bookings[i].checkIn && _date <= bookings[i].checkOut) {
-                return true; // The date is within a booked interval
+            bool isOverlapping = (_checkIn < bookings[i].checkOut) && (_checkOut > bookings[i].checkIn);
+            if (isOverlapping) {
+                return true; // Indicates there is an overlap, hence the date is booked.
             }
         }
-        return false; // No bookings found that include the date
+        return false; // No overlapping bookings found.
     }
 
    /**
