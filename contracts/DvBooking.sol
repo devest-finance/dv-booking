@@ -17,8 +17,6 @@ contract DvBooking is Context, DeVest, VestingToken, ReentrancyGuard {
 
     Booking[] public bookings;
 
-    mapping(address => Booking[]) public userBookings;
-
     event booked(address indexed from, uint256 checkIn, uint256 checkOut);
 
     mapping(string => bool) public bookedDates;
@@ -32,10 +30,6 @@ contract DvBooking is Context, DeVest, VestingToken, ReentrancyGuard {
     uint256 private _price;
     uint256 private bookingPrice;
 
-    uint256 public bookingStart = 0;    // start date of presale
-    uint256 public bookingEnd = 0;      // end date of presale
-
-
     constructor(address _tokenAddress, string memory __name, string memory __symbol, string memory __tokenURI, address _factory, address _owner) DeVest(_owner, _factory) VestingToken(_tokenAddress) {
         _symbol = string(abi.encodePacked("nights ", __symbol));
         _name = __name;
@@ -45,7 +39,7 @@ contract DvBooking is Context, DeVest, VestingToken, ReentrancyGuard {
     /**
      *  Initialize TST as tangible
      */
-    function initialize(uint tax, uint256 price) public onlyOwner nonReentrant virtual{
+    function initialize(uint tax, uint256 price) public onlyOwner nonReentrant virtual {
         require(tax >= 0 && tax <= 1000, 'Invalid tax value');
         _price = price;
 
@@ -53,7 +47,7 @@ contract DvBooking is Context, DeVest, VestingToken, ReentrancyGuard {
         _setRoyalties(tax, owner());
     }
 
-    function book(uint256 _checkIn, uint256 _checkOut) external payable {
+    function book(uint256 _checkIn, uint256 _checkOut) external takeFee payable {
         require(_checkOut > _checkIn, "Check-out must be after check-in");
         uint numNights = (_checkOut - _checkIn) / 86400; // Calculate nights based on timestamps
         require(msg.value == numNights * _price, "Incorrect payment amount");
